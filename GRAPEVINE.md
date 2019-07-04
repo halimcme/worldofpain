@@ -68,3 +68,20 @@ At the end of struct char_data:
 //grapevine commands
 ACMD(do_gvstatus);  ACMD(do_gvtell);    ACMD(do_gvchannel);
 ```
+### Changes needed for stock Circle/tba code bases:
+World of Pain uses C++ vector classes for things like descriptor_list and character_list, so if you don't, you'll need to replace lines in grapevine.cpp such as the following:
+```
+  for (auto &i : descriptor_list) 
+```
+and
+```
+  for (auto &i : character_list)
+```
+with stock Circle/tba conventions like:
+```
+  for (d = descriptor_list; d; d = d->next)
+```
+and
+```
+  for (i = character_list; i; i = i->next)
+```
