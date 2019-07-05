@@ -307,6 +307,8 @@ namespace ix
     void GvChat::eventPlayersStatus(json j)
     {
         std::string game = j["payload"]["game"];
+        std::string nobodyOn;
+
         if (j["ref"].is_string())
         {
             std::string refStr = j["ref"];
@@ -314,7 +316,7 @@ namespace ix
             chPtr ch = findCharByRef(ref);
             if (!ch)
                 return;
-            send_to_char(ch, "GV: Players in %s:\r\n", game.c_str());
+            std::string players;
             if (j["payload"]["players"].is_array())
             {
                 std::string playerLine;
@@ -325,17 +327,26 @@ namespace ix
                 {
                     std::string player = p;
                     if (playerLine.length() + player.length() + 1 > sw)
-                    {                
-                        send_to_char(ch, "%s\r\n", playerLine.c_str());
+                    {       
+                        players += "\r\n";
                         playerLine = player + " ";
+                        players += playerLine;
                     }
                     else
                     {
                         playerLine += player + " ";
+                        players += player + " ";
                     }
                 }
-                if (!playerLine.empty())
-                    send_to_char(ch, "%s\r\n", playerLine.c_str());
+                if (!players.empty())
+                {
+                    send_to_char(ch, "GV: Players in %s:\r\n", game.c_str());
+                    send_to_char(ch, "%s\r\n", players.c_str());
+                }
+                else 
+                {
+                    send_to_char(ch, "GV: No players online on %s.\r\n", game.c_str());
+                }
             }
         }
     }
