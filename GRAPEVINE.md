@@ -6,7 +6,7 @@
 - Nlohmann JSON library: https://github.com/nlohmann/json
 - Machine Zone IXWebSocket library: https://github.com/machinezone/IXWebSocket
 
-Other files to modify to add Grapevine support:
+Modify these files to add Grapevine support. Add grapevine.h to the includes section at the top of each .c file.
 * db.c:
 After the end of the free_char function:
 ```
