@@ -317,7 +317,7 @@ namespace ix
             if (!ch)
                 return;
             std::string players;
-            int count = 0; // count of online chars in a game
+            int count = 0; // count of online players in a game
             if (j["payload"]["players"].is_array())
             {
                 std::string playerLine;
@@ -354,7 +354,7 @@ namespace ix
                 }
                 else 
                 {
-                    send_to_char(ch, "No characters online on %s.\r\n", game.c_str());
+                    send_to_char(ch, "No characters online in %s.\r\n", game.c_str());
                 }
             }
         }
