@@ -5,6 +5,7 @@
 - Graeme-Hill Crossguid library: https://github.com/graeme-hill/crossguid
 - Nlohmann JSON library: https://github.com/nlohmann/json
 - Machine Zone IXWebSocket library: https://github.com/machinezone/IXWebSocket
+- Register your game at https://grapevine.haus/register/new and grab the client ID and secret to setup in your code.
 
 Modify these files to add Grapevine support. Add grapevine.h to the includes section at the top of each .c file.
 * db.c:
@@ -38,7 +39,7 @@ After boot_db() in the init_game function:
      std::string client_id = "<your Grapevine client id>";
      std::string client_secret = "<your Grapevline client secret>";
 
-     GvChat = new ix::GvChat(url, client_id, client_secret, "1.0.0", "World of Pain");
+     GvChat = new ix::GvChat(url, client_id, client_secret, "1.0.0", "<your mud name>");
      GvChat->start();
 ```
 After game_loop() in the init_game function:
