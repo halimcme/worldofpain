@@ -442,7 +442,7 @@ namespace ix
         if (!ch)
             return;
         std::stringstream ss;
-        ss << "GV Game :" << p["game"] << endl;
+        ss << "GV Game :" << p["game"] << " ";
         ss << "Name: " << p["display_name"] << endl;
         ss << p["description"] << endl;
         ss << "URL:" << p["homepage_url"] << endl;
