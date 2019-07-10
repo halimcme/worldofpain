@@ -465,7 +465,6 @@ namespace ix
             for (auto &con : p["connections"])
             {
                 ss << " ";
-                cout << con.dump() << endl;
                 if (con["type"] == "web")
                     ss << "Web: " << con["url"];
                 else if (con["type"] == "telnet")
