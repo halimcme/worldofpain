@@ -132,7 +132,7 @@ namespace ix
         j["event"] = "authenticate";
         j["payload"]["client_id"] = _client_id;
         j["payload"]["client_secret"] = _client_secret;
-        j["payload"]["supports"] = { "channels", "players", "tells" };
+        j["payload"]["supports"] = { "channels", "players", "tells", "games" };
         j["payload"]["channels"] = { "gossip", "testing" };
         j["payload"]["version"] = _version;
         j["payload"]["user_agent"] = _user_agent;
@@ -166,6 +166,12 @@ namespace ix
             eventSuccess(j);
         else if (event == "tells/receive")
             eventTellsReceive(j);
+        else if (event == "games/connect")
+            eventGamesConnect(j, true);
+        else if (event == "games/disconnect")
+            eventGamesConnect(j, false);
+        else if (event == "games/status")
+            eventGamesStatus(j);
         else
         {
             std::stringstream ss;
@@ -406,19 +412,72 @@ namespace ix
         }
     }
 
-    void GvChat::eventGamesConnect(json j)
+// games/connect or games/disconnect events
+    void GvChat::eventGamesConnect(json j, bool connected)
     {
+        std::string game = j["payload"]["game"];
 
-    }
-
-    void GvChat::eventGamesDisconnect(json j)
-    {
-
+        for (auto &i : descriptor_list) 
+        {
+            if (connected)
+                send_to_char(i->character, \
+                    "GV: Game %s has connected to Grapevine.\r\n", \
+                    game.c_str());
+            else
+                send_to_char(i->character, \
+                    "GV: Game %s has disconnected from Grapevine.\r\n", \
+                    game.c_str());
+        }
     }
     
     void GvChat::eventGamesStatus(json j)
     {
-
+        // we should always have a payload for games/status events
+        if (!j["payload"].is_object())
+            return;
+        json p = j["payload"];
+        std::string refStr = j["ref"];
+        xg::Guid ref(refStr);
+        chPtr ch = findCharByRef(ref);
+        if (!ch)
+            return;
+        std::stringstream ss;
+        ss << "GV Game :" << p["game"] << endl;
+        ss << "Name: " << p["display_name"] << endl;
+        ss << p["description"] << endl;
+        ss << "URL:" << p["homepage_url"] << endl;
+        if (p["user_agent"].is_string())
+            ss << "User Agent: " << p["user_agent"] << endl;
+        if (p["user_agent_repo_url"].is_string())
+            ss << "Repo URL: " << p["user_agent_repo_url"] << endl;
+        if (!p["player_online_count"].empty())
+            ss << "Players Online: " << p["player_online_count"] << endl;
+        if (p["supports"].is_array())
+        {
+            ss << "Supports: ";
+            for (auto &sup : p["supports"])
+                ss << sup << " ";
+            ss << endl;
+        }
+        if (p["connections"].is_array())
+        {
+            ss << "Connections:";
+            for (auto &con : p["connections"])
+            {
+                ss << " ";
+                cout << con.dump() << endl;
+                if (con["type"] == "web")
+                    ss << "Web: " << con["url"];
+                else if (con["type"] == "telnet")
+                    ss << "Telnet: " << con["host"] << ":" << con["port"];
+                else if (con["type"] == "secure telnet")
+                    ss << "Secure Telnet: " << con["host"] << ":" \
+                        << con["port"];
+            }
+            ss << endl;
+        }
+        send_to_char(ch, "%s", ss.str().c_str());
+        return;
     }
 
 // send a json message to GV if we're connected
@@ -426,12 +485,12 @@ namespace ix
     {
         std::string event = j["event"];
         if (!isReady())
-        {
+        {  // make sure the socket is ready before sending
             log("Attempting to send message when not ready: " + j.dump());
             return;
         }
         else if (event != "authenticate" && !authenticated)
-        {
+        {  // make sure we're authenticated before sending
             log("Attempting to send message when not authenticated:" \
                 + j.dump());
             return;
@@ -458,7 +517,6 @@ namespace ix
     void GvChat::playerSignOut(chPtr ch)
     {
         json j;
-
         j["event"] = "players/sign-out";
         j["payload"] = { { "name", GET_NAME(ch) }};
         sendMessage(j);
@@ -480,7 +538,25 @@ namespace ix
         j["event"] = "players/status";
         j["ref"] = g;
         j["payload"] = { { "game", removeSpaces(game) } };
-        log("playerStatus debug: " + j.dump());
+        sendMessage(j);
+    }
+
+// get status for all games
+    void GvChat::gameStatus(xg::Guid g)
+    {
+        json j;
+        j["event"] = "games/status";
+        j["ref"] = g;
+        sendMessage(j);
+    }
+
+// get status for players in a specific game
+    void GvChat::gameStatus(xg::Guid g, const std::string& game)
+    {
+        json j;
+        j["event"] = "games/status";
+        j["ref"] = g;
+        j["payload"] = { { "game", removeSpaces(game) } };
         sendMessage(j);
     }
 
@@ -537,8 +613,8 @@ namespace ix
 
 // Grapevine player commands
 
-// get status of players or players on a specific game
-ACMD(do_gvstatus)
+// get status of players
+ACMD(do_gvplayer)
 {
   if (affected_by_spell(ch, SPELL_BLINDNESS)) 
   {
@@ -550,10 +626,23 @@ ACMD(do_gvstatus)
   auto g = xg::newGuid();
   ch->gvGuid = g;
 
-  if (!game.empty())
+  if (!game.empty()) // specific game
     GvChat->playerStatus(g, game);
-  else
+  else  // all games
     GvChat->playerStatus(g);
+}
+
+// get status of games
+ACMD(do_gvgame)
+{
+  std::string game(argument);
+  auto g = xg::newGuid();
+  ch->gvGuid = g;
+
+  if (!game.empty())  // specific game
+    GvChat->gameStatus(g, game);
+  else  // all games
+    GvChat->gameStatus(g);
 }
 
 // send tell via Grapevine
