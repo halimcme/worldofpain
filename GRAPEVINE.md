@@ -25,7 +25,8 @@ After the end of the init_char function:
 * interpreter.c:
 In your command_info cmd_info[] struct:
 ```
-  { "gvstatus" , "gvs"   , POS_DEAD    , do_gvstatus , 0, 0, 0 },
+  { "gvplayer" , "gvp"   , POS_DEAD    , do_gvplayer , 0, 0, 0 },
+  { "gvgame"   , "gvg"   , POS_DEAD    , do_gvgame   , 0, 0, 0 },
   { "gvtell"   , "gvt"   , POS_DEAD    , do_gvtell   , 0, 0, 0 },
   { "gvchannel", "gvc"   , POS_DEAD    , do_gvchannel, 0, 0, 0 },
 ```
@@ -67,7 +68,8 @@ At the end of struct char_data:
 * act.h (or wherever you want to put your ACMDs, we use acmd.h)
 ```
 //grapevine commands
-ACMD(do_gvstatus);  ACMD(do_gvtell);    ACMD(do_gvchannel);
+ACMD(do_gvplayer);  ACMD(do_gvgame);      ACMD(do_gvtell);
+ACMD(do_gvchannel);
 ```
 ### Changes needed for stock Circle/tba code bases:
 World of Pain uses C++ vector classes for things like descriptor_list and character_list, so if you don't, you'll need to replace lines in grapevine.cpp such as the following:
@@ -80,7 +82,7 @@ and
 ```
 with stock Circle/tba conventions like:
 ```
-  for (d = descriptor_list; d; d = d->next)
+  for (i = descriptor_list; i; i = i->next)
 ```
 and
 ```
