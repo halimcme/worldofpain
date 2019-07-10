@@ -51,6 +51,9 @@ namespace ix
             void sendChannel(chPtr ch, const std::string &message);
             void sendTell(chPtr ch, const std::string &to_name,
                 const std::string &to_game, const std::string &message);
+            void gameStatus(xg::Guid g);
+            void gameStatus(xg::Guid g, const std::string& game);
+
         private:
             std::string _url;
             std::string _client_id;
@@ -75,8 +78,7 @@ namespace ix
             void eventFailure(json j);
             void eventSuccess(json j);
             void eventTellsReceive(json j);
-            void eventGamesConnect(json j);
-            void eventGamesDisconnect(json j);
+            void eventGamesConnect(json j, bool connected);
             void eventGamesStatus(json j);
 
     };
