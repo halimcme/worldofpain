@@ -442,38 +442,58 @@ namespace ix
         if (!ch)
             return;
         std::stringstream ss;
-        ss << "GV Game :" << p["game"] << " ";
-        ss << "Name: " << p["display_name"] << endl;
-        ss << p["description"] << endl;
-        ss << "URL:" << p["homepage_url"] << endl;
-        if (p["user_agent"].is_string())
-            ss << "User Agent: " << p["user_agent"] << endl;
-        if (p["user_agent_repo_url"].is_string())
-            ss << "Repo URL: " << p["user_agent_repo_url"] << endl;
-        if (!p["player_online_count"].empty())
-            ss << "Players Online: " << p["player_online_count"] << endl;
-        if (p["supports"].is_array())
+        if (ch->gvGameAll)
         {
-            ss << "Supports: ";
-            for (auto &sup : p["supports"])
-                ss << sup << " ";
+            if (ch->gvFirstGame)
+            {  // print header for the first game only
+                ss << "Games Online in Grapevine:" << endl;
+                ch->gvFirstGame = false;
+            }
+            ss << "(" << p["game"].get<std::string>() << ") ";
+            ss << p["display_name"].get<std::string>();
+            if (!p["player_online_count"].empty())
+                ss << " (Players Online: " << p["player_online_count"] << ")";
             ss << endl;
         }
-        if (p["connections"].is_array())
+        else
         {
-            ss << "Connections:";
-            for (auto &con : p["connections"])
+            ss << "GV Game: (" << p["game"].get<std::string>() << ") ";
+            ss << p["display_name"].get<std::string>() << endl;
+            ss << p["description"].get<std::string>() << endl;
+            ss << "URL: " << p["homepage_url"].get<std::string>() << endl;
+            if (p["user_agent"].is_string())
+                ss << "User Agent: " << p["user_agent"].get<std::string>() \
+                    << endl;
+            if (p["user_agent_repo_url"].is_string())
+                ss << "Repo URL: " << \
+                    p["user_agent_repo_url"].get<std::string>() << endl;
+            if (!p["player_online_count"].empty())
+                ss << "Players Online: " << p["player_online_count"] << endl;
+            if (p["supports"].is_array())
             {
-                ss << " ";
-                if (con["type"] == "web")
-                    ss << "Web: " << con["url"];
-                else if (con["type"] == "telnet")
-                    ss << "Telnet: " << con["host"] << ":" << con["port"];
-                else if (con["type"] == "secure telnet")
-                    ss << "Secure Telnet: " << con["host"] << ":" \
-                        << con["port"];
+                ss << "Supports: ";
+                for (auto &sup : p["supports"])
+                    ss << sup.get<std::string>() << " ";
+                ss << endl;
             }
-            ss << endl;
+            if (p["connections"].is_array())
+            {
+                ss << "Connections:";
+                for (auto &con : p["connections"])
+                {
+                    ss << " ";
+                    if (con["type"] == "web")
+                        ss << "Web: " << con["url"].get<std::string>();
+                    else if (con["type"] == "telnet")
+                        ss << "Telnet: " << con["host"].get<std::string>() \
+                            << ":" << con["port"];
+                    else if (con["type"] == "secure telnet")
+                        ss << "Secure Telnet: " << \
+                            con["host"].get<std::string>() << ":" \
+                            << con["port"];
+                }
+                ss << endl;
+            }
         }
         send_to_char(ch, "%s", ss.str().c_str());
         return;
@@ -639,9 +659,16 @@ ACMD(do_gvgame)
   ch->gvGuid = g;
 
   if (!game.empty())  // specific game
+  { 
+    ch->gvGameAll = false;
     GvChat->gameStatus(g, game);
+  }
   else  // all games
+  {
+    ch->gvGameAll = true;
+    ch->gvFirstGame = true;
     GvChat->gameStatus(g);
+  }
 }
 
 // send tell via Grapevine
