@@ -459,7 +459,8 @@ namespace ix
         {
             ss << "GV Game: (" << p["game"].get<std::string>() << ") ";
             ss << p["display_name"].get<std::string>() << endl;
-            ss << p["description"].get<std::string>() << endl;
+            if (p["descrption"].is_string())
+                ss << p["description"].get<std::string>() << endl;
             ss << "URL: " << p["homepage_url"].get<std::string>() << endl;
             if (p["user_agent"].is_string())
                 ss << "User Agent: " << p["user_agent"].get<std::string>() \
