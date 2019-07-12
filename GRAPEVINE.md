@@ -64,6 +64,8 @@ At the end of struct char_data:
    xg::Guid gvGuid;         // guid for current Grapevine action
    std::string *gvMessage;   // send this text on GV success result
    std::string *gvChannel;   // current channel for this player
+   bool gvGameAll;          // show all games or just one?
+   bool gvFirstGame;        // is this the first game if gvGameAll == true?
 ```
 * act.h (or wherever you want to put your ACMDs, we use acmd.h)
 ```
