@@ -59,6 +59,11 @@ At the end of enter_player_game before the return:
   GvChat->playerSignIn(d->character);
 ```
 * structs.h:
+At the top in the includes section:
+```
+#include <string>
+#include <crossguid/guid.hpp>
+```
 At the end of struct char_data:
 ```
    xg::Guid gvGuid;         // guid for current Grapevine action
