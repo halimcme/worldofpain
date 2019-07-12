@@ -3,7 +3,7 @@
 ## Requirements:
 - C++ compiling support for your code
 - Graeme-Hill Crossguid library: https://github.com/graeme-hill/crossguid
-- Nlohmann JSON library: https://github.com/nlohmann/json
+- JSON for Modern C++ library: https://github.com/nlohmann/json
 - Machine Zone IXWebSocket library: https://github.com/machinezone/IXWebSocket
 - Register your game at https://grapevine.haus/register/new and grab the client ID and secret to setup in your code.
 
