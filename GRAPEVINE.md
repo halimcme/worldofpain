@@ -95,3 +95,22 @@ and
 ```
   for (i = character_list; i; i = i->next)
 ```
+## Player Command Help
+### gvplayer
+Shows the players online with Grapevine in a game or all games.
+Usage: gvplayer <game>
+<game> is the optional short name for a game in Grapevine. Specify no game to see all players in all games.
+### gvgame
+Shows all games currently online in Grapevine or gets detailed information on a specific game.
+Usage: gvgame <game>
+<game> is the optional short name for a game in Grapevine. Specify no game to see all games online.
+### gvtell
+Send a private tell to a player in another game on Grapevine.
+Usage: gvtell <player@game> <message>
+### gvchannel
+Send a message to everyone on a particular channel on all games on Grapevine, or switch channels.
+Usage: gvchannel <message>
+OR gvchannel <channel>
+Currently supported channels are gossip and testing. The default channel is gossip.
+
+  
