@@ -81,7 +81,7 @@ ACMD(do_gvchannel);
 ### Makefile changes
 You'll have to add the following libraries to compile:
 ```
--lstdc++ -lm -lixwebsocket -lcrypto -lssl -lpthread -luuid -lcrossguid
+-lixwebsocket -lcrypto -lssl -lpthread -luuid -lcrossguid
 ```
 ### Changes needed for stock Circle/tba code bases:
 World of Pain uses C++ vector classes for things like descriptor_list and character_list, so if you don't, you'll need to replace lines in grapevine.cpp such as the following:
