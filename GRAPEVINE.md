@@ -78,7 +78,7 @@ At the end of struct char_data:
 ACMD(do_gvplayer);  ACMD(do_gvgame);      ACMD(do_gvtell);
 ACMD(do_gvchannel);
 ```
-* Makefile changes
+### Makefile changes
 You'll have to add the following libraries to compile:
 ```
 -lstdc++ -lm -lixwebsocket -lcrypto -lssl -lpthread -luuid -lcrossguid
