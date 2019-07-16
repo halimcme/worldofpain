@@ -47,6 +47,21 @@ After game_loop() in the init_game function:
 ```
   GvChat->stop();
 ```
+Still testing this as of 7/16, to fix threading issues, at the top add
+```
+#include <mutex>
+```
+In the game_loop() function at the start of the main while() loop:
+```
+    // lock threads for the main loop
+    std::mutex mtx;
+    mtx.lock();
+```
+At the very end of the while() loop before the bracket:
+```
+    // unlock the thread
+    mtx.unlock();
+```
 * handler.c:
 At the start of the extract_char function:
 ```
