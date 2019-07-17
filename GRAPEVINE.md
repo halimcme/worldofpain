@@ -52,6 +52,14 @@ In game_loop() after the line "Waking up to process connection." or "New connect
 // connect to Grapevine
 GvChat->start();
 ```
+In game_loop() right before "Process descriptors with input pending":
+```
+// Process Grapevine messages and logs
+      if (GvChat->getReceivedMessagesCount() > 0)
+        GvChat->processMessages();
+      if (GvChat->getLogMessagesCount() > 0)
+        GvChat->processLog();
+```
 * handler.c:
 At the start of the extract_char function:
 ```
