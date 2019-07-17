@@ -55,13 +55,45 @@ namespace ix
 // log Grapevine to mud system log
     void GvChat::log(const std::string& msg)
     {
-        do_log("GV CHAT: %s", msg.c_str());
+        std::lock_guard<std::mutex> lock(_logMutex);
+        _logQueue.push(msg);
     }
 
 // count of recieved messages
     size_t GvChat::getReceivedMessagesCount() const
     {
+        std::lock_guard<std::mutex> lock(_msgMutex);
         return _receivedQueue.size();
+    }
+
+// count of log messages
+    size_t GvChat::getLogMessagesCount() const
+    {
+        std::lock_guard<std::mutex> lock(_logMutex);
+        return _logQueue.size();
+    }
+
+// process message queue
+    void GvChat::processMessages()
+    {
+        std::lock_guard<std::mutex> lock(_msgMutex);
+        while(!_receivedQueue.empty())
+        {
+            decodeMessage(_receivedQueue.front());
+            _receivedQueue.pop();
+        }
+    }
+
+// process log queue
+    void GvChat::processLog()
+    {
+        std::lock_guard<std::mutex> lock(_logMutex);
+        while(!_logQueue.empty())
+        {
+            mudlog(NRM, LVL_IMMORT, TRUE, "GV CHAT: %s",
+                _logQueue.front().c_str());
+            _logQueue.pop();
+        }
     }
 
 // is Grapevine connected?
@@ -103,8 +135,10 @@ namespace ix
                        authenticated = false;
                 }
                 else if (msg->type == ix::WebSocketMessageType::Message)
-                { // decode incoming message
-                    decodeMessage(msg->str);
+                { // queue incoming message
+                    std::lock_guard<std::mutex> lock(_msgMutex);
+                    _receivedQueue.push(msg->str);
+                    //decodeMessage(msg->str);
                 }
                 else if (msg->type == ix::WebSocketMessageType::Error)
                 { // report errors
@@ -139,6 +173,8 @@ namespace ix
         authenticated = false;
         sendMessage(j);
     }
+
+
 
 // decode an incoming message
     void GvChat::decodeMessage(const std::string& str)
@@ -213,6 +249,8 @@ namespace ix
                 tch = d->original;
             else if (!(tch = d->character))
                 continue;
+            else if (STATE(d) != CON_PLAYING)
+                continue; // don't show players that aren't in the game
             if (IS_GOD(tch) && GET_INVIS_LEV(tch))
                 continue; // don't show invisible gods
 
@@ -459,9 +497,10 @@ namespace ix
         {
             ss << "GV Game: (" << p["game"].get<std::string>() << ") ";
             ss << p["display_name"].get<std::string>() << endl;
-            if (p["descrption"].is_string())
+            if (p["description"].is_string())
                 ss << p["description"].get<std::string>() << endl;
-            ss << "URL: " << p["homepage_url"].get<std::string>() << endl;
+            if (p["homepage_url"].is_string())
+                ss << "URL: " << p["homepage_url"].get<std::string>() << endl;
             if (p["user_agent"].is_string())
                 ss << "User Agent: " << p["user_agent"].get<std::string>() \
                     << endl;
@@ -684,7 +723,10 @@ ACMD(do_gvtell)
   half_chop(argument, buf, buf2);
 
   if (!*buf || !*buf2)
-    send_to_char(ch, "Who do you wish to GVTell what??\r\n");
+  {
+    send_to_char(ch, "Whom do you wish to GVTell what??\r\n");
+    return;
+  }
 
   // split user@game into two variables
   vector<string> dest;
@@ -698,7 +740,7 @@ ACMD(do_gvtell)
   }
 
   // dest[0] = user @ dest[1] = game
-  if (dest[0].empty() || dest[1].empty())
+  if (dest.size() < 2 || dest[0].empty() || dest[1].empty())
   {
     send_to_char(ch, "GVTell User@Game to send a message.\r\n");
     return;
