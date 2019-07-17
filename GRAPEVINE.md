@@ -41,26 +41,16 @@ After boot_db() in the init_game function:
      std::string client_secret = "<your Grapevline client secret>";
 
      GvChat = new ix::GvChat(url, client_id, client_secret, "1.0.0", "<your mud name>");
-     GvChat->start();
 ```
-After game_loop() in the init_game function:
+In game_loop() right before "Entering Select Sleep, no sockets." or "No connections.  Going to sleep.":
 ```
-  GvChat->stop();
+// disconnect from Grapevine
+GvChat->stop();
 ```
-Still testing this as of 7/16, to fix threading issues, at the top add
+In game_loop() after the line "Waking up to process connection." or "New connection.  Waking up.":
 ```
-#include <mutex>
-```
-In the game_loop() function at the start of the main while() loop:
-```
-    // lock threads for the main loop
-    std::mutex mtx;
-    mtx.lock();
-```
-At the very end of the while() loop before the bracket:
-```
-    // unlock the thread
-    mtx.unlock();
+// connect to Grapevine
+GvChat->start();
 ```
 * handler.c:
 At the start of the extract_char function:
