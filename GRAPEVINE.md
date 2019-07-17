@@ -42,6 +42,11 @@ After boot_db() in the init_game function:
 
      GvChat = new ix::GvChat(url, client_id, client_secret, "1.0.0", "<your mud name>");
 ```
+In copyover_recovery() after "Warm Boot initiated" or "Copyover recovery initiated":
+```
+  // connect to Grapevine
+	GvChat->start();
+```
 In game_loop() right before "Entering Select Sleep, no sockets." or "No connections.  Going to sleep.":
 ```
 // disconnect from Grapevine
