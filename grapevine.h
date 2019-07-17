@@ -14,6 +14,8 @@
 #include <iostream>
 #include <sstream>
 #include <queue>
+#include <mutex>
+#include <vector>
 #include <ixwebsocket/IXWebSocket.h>
 #include <ixwebsocket/IXSocket.h>
 #include "utils.h"
@@ -40,6 +42,9 @@ namespace ix
 
             void sendMessage(json j);
             size_t getReceivedMessagesCount() const;
+            size_t getLogMessagesCount() const;
+            void processMessages();
+            void processLog();
 
             std::string encodeMessage(const std::string& text);
             void decodeMessage(const std::string& str);
@@ -62,7 +67,10 @@ namespace ix
             std::string _user_agent;
             ix::WebSocket _webSocket;
             std::queue<std::string> _receivedQueue;
+            std::queue<std::string> _logQueue;
             bool authenticated;
+            mutable std::mutex _msgMutex;
+            mutable std::mutex _logMutex;
             
             void log(const std::string& msg);
             chPtr findCharByRef(xg::Guid g);
