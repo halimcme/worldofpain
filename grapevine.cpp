@@ -483,9 +483,10 @@ namespace ix
                 !str_cmp(GET_NAME(i->character), to_name.c_str()))
             { // if we're able to hear and our name matches, send tell
                 send_to_char(i->character, \
-                    "%sGV: %s@%s tells you '%s'%s\r\n", \
+                    "%sGV: %s@%s%s%s tells you '%s'%s\r\n", \
                     CCRED(i->character, C_NRM),
-                    from_name.c_str(), from_game.c_str(), \
+                    from_name.c_str(), CCBLU(i->character, C_NRM), \
+                    from_game.c_str(), CCRED(i->character, C_NRM), \
                     message.c_str(), CCNRM(i->character, C_NRM));
             }
         }
@@ -500,13 +501,15 @@ namespace ix
         {
             if (connected)
                 send_to_char(i->character, \
-                    "%sGV: Game %s has connected to Grapevine.%s\r\n", \
-                    CCYEL(i->character, C_NRM), game.c_str(), \
+                    "%sGV: Game %s%s%s has connected to Grapevine.%s\r\n", \
+                    CCYEL(i->character, C_NRM), CCBLU(i->character, C_NRM), \
+                    game.c_str(), CCYEL(i->character, C_NRM), \
                     CCNRM(i->character, C_NRM));
             else
                 send_to_char(i->character, \
-                    "%sGV: Game %s has disconnected from Grapevine.%s\r\n", \
-                    CCYEL(i->character, C_NRM), game.c_str(), \
+                    "%sGV: Game %s%s%s has disconnected from Grapevine.%s\r\n", \
+                    CCYEL(i->character, C_NRM), CCBLU(i->character, C_NRM), \
+                    game.c_str(), CCYEL(i->character, C_NRM), \
                     CCNRM(i->character, C_NRM));
         }
     }
@@ -540,45 +543,51 @@ namespace ix
         }
         else
         {
-            ss << "GV Game: (" << CCBLU(ch, C_NRM) \
-                << p["game"].get<std::string>() << CCNRM(ch, C_NRM) << ") ";
+            ss << CCYEL(ch, C_NRM) << "GV Game: " << CCNRM(ch, C_NRM) << "(" \
+                << CCBLU(ch, C_NRM) << p["game"].get<std::string>() \
+                << CCNRM(ch, C_NRM) << ") ";
             ss << p["display_name"].get<std::string>() << endl;
             if (p["description"].is_string())
                 ss << p["description"].get<std::string>() << endl;
             if (p["homepage_url"].is_string())
-                ss << "URL: " << p["homepage_url"].get<std::string>() << endl;
+                ss << CCYEL(ch, C_NRM) << "URL: " << CCNRM(ch, C_NRM) \
+                    << p["homepage_url"].get<std::string>() << endl;
             if (p["user_agent"].is_string())
-                ss << "User Agent: " << p["user_agent"].get<std::string>() \
-                    << endl;
+                ss << CCYEL(ch, C_NRM) << "User Agent: " << CCNRM(ch, C_NRM) \
+                    << p["user_agent"].get<std::string>() << endl;
             if (p["user_agent_repo_url"].is_string())
-                ss << "Repo URL: " << \
-                    p["user_agent_repo_url"].get<std::string>() << endl;
+                ss << CCYEL(ch, C_NRM) << "Repo URL: " << CCNRM(ch, C_NRM) \
+                    << p["user_agent_repo_url"].get<std::string>() << endl;
             if (!p["player_online_count"].empty())
-                ss << "Players Online: " << p["player_online_count"] << endl;
+                ss << CCYEL(ch, C_NRM) << "Players Online: " \
+                    << CCNRM(ch, C_NRM) << p["player_online_count"] << endl;
             if (p["supports"].is_array())
             {
-                ss << "Supports: ";
+                ss << CCYEL(ch, C_NRM) << "Supports: " << CCNRM(ch, C_NRM);
                 for (auto &sup : p["supports"])
                     ss << sup.get<std::string>() << " ";
                 ss << endl;
             }
             if (p["connections"].is_array())
             {
-                ss << "Connections:";
+                ss << CCYEL(ch, C_NRM) << "Connections: " << CCNRM(ch, C_NRM);
                 for (auto &con : p["connections"])
                 {
-                    ss << " ";
                     if (con["type"] == "web")
-                        ss << "Web: " << con["url"].get<std::string>();
+                        ss << endl << CCYEL(ch, C_NRM) << "    Web: " \
+                        << CCNRM(ch, C_NRM) << con["url"].get<std::string>();
                     else if (con["type"] == "telnet")
-                        ss << "Telnet: " << con["host"].get<std::string>() \
+                        ss << endl << CCYEL(ch, C_NRM) << "    Telnet: " \
+                            << CCNRM(ch, C_NRM) \
+                            << con["host"].get<std::string>() \
                             << ":" << con["port"];
                     else if (con["type"] == "secure telnet")
-                        ss << "Secure Telnet: " << \
-                            con["host"].get<std::string>() << ":" \
+                        ss << endl << CCYEL(ch, C_NRM) \
+                            << "    Secure Telnet: " << CCNRM(ch, C_NRM) \
+                            << con["host"].get<std::string>() << ":" \
                             << con["port"];
                 }
-                ss << endl;
+                //ss << endl;
             }
         }
         send_to_char(ch, "%s", ss.str().c_str());
@@ -694,8 +703,8 @@ namespace ix
     {
         json j;
         std::string aMessage(std::string(CCRED(ch, C_NRM)) + "GV: You tell " \
-            + to_name + "@" + to_game + ", '" + message + CCNRM(ch, C_NRM) \
-            + "'\r\n");
+            + to_name + "@" + to_game + ", '" + message + "'" + \
+            CCNRM(ch, C_NRM) + "\r\n");
         auto g = newAction(ch, aMessage);
         auto now = std::chrono::system_clock::now();
         auto itt = std::chrono::system_clock::to_time_t(now);
@@ -742,8 +751,6 @@ namespace ix
             else
                 ++it;
     }
-    //
-
 }
 
 // Grapevine player commands
@@ -751,6 +758,13 @@ namespace ix
 // get status of players
 ACMD(do_gvplayer)
 {
+  // no mobs allowed!
+  if (IS_NPC(ch))
+  {
+      send_to_char(ch, "Only players are allowed on Grapevine!");
+      return;
+  }
+
   if (affected_by_spell(ch, SPELL_BLINDNESS)) 
   {
     send_to_char(ch, "You have been blinded! You cannot see this list!\r\n");
@@ -769,6 +783,13 @@ ACMD(do_gvplayer)
 // get status of games
 ACMD(do_gvgame)
 {
+  // no mobs allowed!
+  if (IS_NPC(ch))
+  {
+      send_to_char(ch, "Only players are allowed on Grapevine!");
+      return;
+  }
+
   std::string game(argument);
   auto g = GvChat->newAction(ch);
 
@@ -788,17 +809,17 @@ ACMD(do_gvgame)
 // send tell via Grapevine
 ACMD(do_gvtell)
 {
-  if (affected_by_spell(ch, SPELL_BLINDNESS)) 
-  {
-    send_to_char(ch, "You have been blinded! You cannot GVTell anyone anything!\r\n");
-    return;
-  }
-
   // no mobs allowed!
   if (IS_NPC(ch))
   {
       send_to_char(ch, "Only players are allowed on Grapevine!");
       return;
+  }
+
+  if (affected_by_spell(ch, SPELL_BLINDNESS)) 
+  {
+    send_to_char(ch, "You have been blinded! You cannot GVTell anyone anything!\r\n");
+    return;
   }
 
   half_chop(argument, buf, buf2);
@@ -833,16 +854,16 @@ ACMD(do_gvtell)
 // broadcast via Grapevine channel
 ACMD(do_gvchannel)
 {
-  one_argument(argument, arg);
-  std::string message(argument);
-  std::string channel(arg);
-
   // no mobs allowed!
   if (IS_NPC(ch))
   {
       send_to_char(ch, "Only players are allowed on Grapevine!");
       return;
   }
+
+  one_argument(argument, arg);
+  std::string message(argument);
+  std::string channel(arg);
 
   // change channel if the first arg is a channel name
   if (channel == "gossip" || channel == "testing")
