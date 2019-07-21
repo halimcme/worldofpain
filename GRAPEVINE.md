@@ -9,12 +9,12 @@
 
 Modify these files to add Grapevine support. Add grapevine.h to the includes section at the top of each .c file.
 * db.c:
-After the end of the free_char function:
+At the end of the free_char function:
 ```
   if (ch->gvChannel)
     delete ch->gvChannel;
 ```   
-After the end of the init_char function:
+At the end of the init_char function:
 ```
   ch->gvChannel = NULL;
 ```
@@ -44,21 +44,11 @@ In copyover_recovery() after "Warm Boot initiated" or "Copyover recovery initiat
   // connect to Grapevine
 	GvChat->start();
 ```
-In game_loop() right at the top:
+In game_loop() right at the top of the main loop:
 ```
 // Process log queue
 if (GvChat->getLogMessagesCount() > 0)
   GvChat->processLog();
-```
-In game_loop() right before "Entering Select Sleep, no sockets." or "No connections.  Going to sleep.":
-```
-// disconnect from Grapevine
-GvChat->stop();
-```
-In game_loop() after the line "Waking up to process connection." or "New connection.  Waking up.":
-```
-// connect to Grapevine
-GvChat->start();
 ```
 In game_loop() right before "Process descriptors with input pending":
 ```
