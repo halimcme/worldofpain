@@ -5,9 +5,11 @@
 *  All rights reserved.  See license.doc for complete information.        *
 *                                                                         *
 *  Copyright (C) 2019 World of Pain                                       *
-*                                                                         *
+*  https://worldofpa.in                                                   *
 *  Based on ws_chat.cpp by: Benjamin Sergeant                             *
-*  Copyright (c) 2017-2019 Machine Zone, Inc. All rights reserved.        *
+*  Copyright (C) 2017-2019 Machine Zone, Inc. All rights reserved.        *
+*  Copyright (C) 1993, 94 by the Trustees of the Johns Hopkins University *
+*  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ***************************************************************************/
 
 #include "conf.h"
@@ -18,10 +20,15 @@
 #include <vector>
 #include <ixwebsocket/IXWebSocket.h>
 #include <ixwebsocket/IXSocket.h>
+#include <crossguid/guid.hpp>
 #include "utils.h"
 #include "json.hpp"
 
 using json = nlohmann::json;
+
+#ifndef chPtr
+typedef struct char_data * chPtr;
+#endif
 
 namespace ix
 {
@@ -34,7 +41,6 @@ namespace ix
                                  const std::string& version,
                                  const std::string& user_agent);
 
-            void subscribe(const std::string& channel);
             void authenticate();
             void start();
             void stop();
@@ -45,6 +51,7 @@ namespace ix
             size_t getLogMessagesCount() const;
             void processMessages();
             void processLog();
+            void setSleeping(bool sleeping);
 
             std::string encodeMessage(const std::string& text);
             void decodeMessage(const std::string& str);
@@ -58,6 +65,7 @@ namespace ix
                 const std::string &to_game, const std::string &message);
             void gameStatus(xg::Guid g);
             void gameStatus(xg::Guid g, const std::string& game);
+            xg::Guid newAction(chPtr ch, std::string action);
 
         private:
             std::string _url;
@@ -68,12 +76,17 @@ namespace ix
             ix::WebSocket _webSocket;
             std::queue<std::string> _receivedQueue;
             std::queue<std::string> _logQueue;
-            bool authenticated;
+            bool _authenticated;
+            bool _sleeping;
             mutable std::mutex _msgMutex;
             mutable std::mutex _logMutex;
+            std::map<std::string, std::pair<chPtr, std::string>> _actions;
+            std::queue<std::string> _processedActions;
             
             void log(const std::string& msg);
-            chPtr findCharByRef(xg::Guid g);
+            std::pair<chPtr, std::string> findAction(std::string g);
+            void eraseAction(std::string g);
+            void eraseActions(chPtr ch);
             void eventAuthenticate(json j);
             void eventHeartbeat(json j);
             void eventRestart(json j);
