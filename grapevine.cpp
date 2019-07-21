@@ -391,6 +391,13 @@ namespace ix
             if (!a.first)
                 return;
             chPtr ch = a.first;
+            if (ch->gvFirstGame && ch->gvGameAll)
+            { // print a header before the list of all games/players
+                send_to_char(ch, \
+                    "%sPlayers online in all Grapevine games:%s\r\n", \
+                    CBYEL(ch, C_NRM), CCNRM(ch, C_NRM));
+                ch->gvFirstGame = false;
+            }
             std::string players;
             int count = 0; // count of online players in a game
             if (j["payload"]["players"].is_array())
@@ -530,7 +537,7 @@ namespace ix
             if (ch->gvFirstGame)
             {  // print header for the first game only
                 
-                ss << CCYEL(ch, C_NRM) << "Games Online in Grapevine:";
+                ss << CBYEL(ch, C_NRM) << "Games Online in Grapevine:";
                 ss << CCNRM(ch, C_NRM) << endl;
                 ch->gvFirstGame = false;
             }
@@ -775,9 +782,16 @@ ACMD(do_gvplayer)
   auto g = GvChat->newAction(ch);
 
   if (!game.empty()) // specific game
+  {
+    ch->gvGameAll = false;
     GvChat->playerStatus(g, game);
+  }
   else  // all games
+  {
+    ch->gvGameAll = true;
+    ch->gvFirstGame = true;
     GvChat->playerStatus(g);
+  }
 }
 
 // get status of games
