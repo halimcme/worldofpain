@@ -13,14 +13,10 @@ After the end of the free_char function:
 ```
   if (ch->gvChannel)
     delete ch->gvChannel;
-
-  if (ch->gvMessage)
-    delete ch->gvMessage;
 ```   
 After the end of the init_char function:
 ```
   ch->gvChannel = NULL;
-  ch->gvMessage = NULL;
 ```
 * interpreter.c:
 In your command_info cmd_info[] struct:
@@ -41,11 +37,18 @@ After boot_db() in the init_game function:
      std::string client_secret = "<your Grapevline client secret>";
 
      GvChat = new ix::GvChat(url, client_id, client_secret, "1.0.0", "<your mud name>");
+     GvChat->start();
 ```
 In copyover_recovery() after "Warm Boot initiated" or "Copyover recovery initiated":
 ```
   // connect to Grapevine
 	GvChat->start();
+```
+In game_loop() right at the top:
+```
+// Process log queue
+if (GvChat->getLogMessagesCount() > 0)
+  GvChat->processLog();
 ```
 In game_loop() right before "Entering Select Sleep, no sockets." or "No connections.  Going to sleep.":
 ```
@@ -59,11 +62,9 @@ GvChat->start();
 ```
 In game_loop() right before "Process descriptors with input pending":
 ```
-// Process Grapevine messages and logs
+// Process Grapevine messages
       if (GvChat->getReceivedMessagesCount() > 0)
         GvChat->processMessages();
-      if (GvChat->getLogMessagesCount() > 0)
-        GvChat->processLog();
 ```
 * handler.c:
 At the start of the extract_char function:
@@ -84,8 +85,6 @@ At the top in the includes section:
 ```
 At the end of struct char_data:
 ```
-   xg::Guid gvGuid;         // guid for current Grapevine action
-   std::string *gvMessage;   // send this text on GV success result
    std::string *gvChannel;   // current channel for this player
    bool gvGameAll;          // show all games or just one?
    bool gvFirstGame;        // is this the first game if gvGameAll == true?
