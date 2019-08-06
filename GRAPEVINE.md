@@ -50,12 +50,31 @@ In game_loop() right at the top of the main loop:
 if (GvChat->getLogMessagesCount() > 0)
   GvChat->processLog();
 ```
+In game_loop() just before "Entering Select Sleep, no sockets.":
+```
+      // tell GvChat we're sleeping
+      GvChat->setSleeping(true);
+```
+In game loop() right after "Waking up to process connection.":
+```
+    // tell GvChat we're no longer sleeping
+    GvChat->setSleeping(false);
+```
 In game_loop() right before "Process descriptors with input pending":
 ```
 // Process Grapevine messages
       if (GvChat->getReceivedMessagesCount() > 0)
         GvChat->processMessages();
 ```
+In heartbeat() right at the end before return;:
+```
+// update Grapevine games and players every 5 minutes
+  if (!(pulse % (300 * PASSES_PER_SEC)))
+  {
+      GvChat->updateGamesStatus();
+      GvChat->updatePlayersStatus();
+  }
+ ```
 * handler.c:
 At the start of the extract_char function:
 ```
@@ -76,8 +95,6 @@ At the top in the includes section:
 At the end of struct char_data:
 ```
    std::string *gvChannel;   // current channel for this player
-   bool gvGameAll;          // show all games or just one?
-   bool gvFirstGame;        // is this the first game if gvGameAll == true?
 ```
 * act.h (or wherever you want to put your ACMDs, we use acmd.h)
 ```
