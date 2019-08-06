@@ -58,14 +58,17 @@ namespace ix
 
             void playerSignIn(chPtr ch);
             void playerSignOut(chPtr ch);
-            void playerStatus(xg::Guid g);
-            void playerStatus(xg::Guid g, const std::string& game);
+            void playersStatus(xg::Guid g, const std::string game = "");
+            void updatePlayersStatus(const std::string game = "");
             void sendChannel(chPtr ch, const std::string &message);
             void sendTell(chPtr ch, const std::string &to_name,
                 const std::string &to_game, const std::string &message);
-            void gameStatus(xg::Guid g);
-            void gameStatus(xg::Guid g, const std::string& game);
-            xg::Guid newAction(chPtr ch, std::string action);
+            void gamesStatus(xg::Guid g, const std::string game = "");
+            void updateGamesStatus(const std::string game = "");
+            xg::Guid newAction(chPtr ch, const std::string action = "");
+
+            std::map<std::string, std::vector<std::string>> playersOnline;
+            std::map<std::string, json> gameStatus;
 
         private:
             std::string _url;
@@ -82,6 +85,9 @@ namespace ix
             mutable std::mutex _logMutex;
             std::map<std::string, std::pair<chPtr, std::string>> _actions;
             std::queue<std::string> _processedActions;
+            std::vector<std::string> _gameActions;
+            bool _clearPlayers;
+            bool _clearGames;
             
             void log(const std::string& msg);
             std::pair<chPtr, std::string> findAction(std::string g);
