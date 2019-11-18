@@ -4,7 +4,7 @@
 - C++ compiling support for your code
 - Graeme-Hill Crossguid library: https://github.com/graeme-hill/crossguid
 - JSON for Modern C++ library: https://github.com/nlohmann/json
-- Machine Zone IXWebSocket library: https://github.com/machinezone/IXWebSocket
+- Machine Zone IXWebSocket library: https://github.com/machinezone/IXWebSocket (tested w/v5.1.3)
 - Register your game at https://grapevine.haus/register/new and grab the client ID and secret to setup in your code.
 
 Modify these files to add Grapevine support. Add grapevine.h to the includes section at the top of each .c file.
@@ -73,6 +73,8 @@ In heartbeat() right at the end before return;:
   {
       GvChat->updateGamesStatus();
       GvChat->updatePlayersStatus();
+      GvChat->updateGamesStatus(GVGAME);
+      GvChat->updatePlayersStatus(GVGAME);
   }
  ```
 * handler.c:
@@ -100,7 +102,7 @@ At the end of struct char_data:
 ```
 //grapevine commands
 ACMD(do_gvplayer);  ACMD(do_gvgame);      ACMD(do_gvtell);
-ACMD(do_gvchannel);
+ACMD(do_gvchannel); ACMD(do_gvset);
 ```
 ### Makefile changes
 You'll have to add the following libraries to compile:
@@ -108,7 +110,7 @@ You'll have to add the following libraries to compile:
 -lixwebsocket -lcrypto -lssl -lpthread -luuid -lcrossguid
 ```
 ### Changes needed for stock Circle/tba code bases:
-World of Pain uses C++ vector classes for things like descriptor_list and character_list, so if you don't, you'll need to replace lines in grapevine.cpp such as the following:
+Unlike stock CircleMUD/tbaMUD, World of Pain uses C++ vector classes for things like descriptor_list and character_list, so if you don't, you'll need to replace lines in grapevine.cpp such as the following:
 ```
   for (auto &i : descriptor_list) 
 ```
@@ -146,7 +148,12 @@ Usage: gvtell <player@game> <message>
 Send a message to everyone on a particular channel on all games on Grapevine, or switch channels.
 ```
 Usage: gvchannel <message>
-OR gvchannel <channel>
+OR gvchannel <channel to switch to>
 Currently supported channels are gossip and testing. The default channel is gossip.
+```
+### gvset
+Toggle player preferences for display of Grapevine status messages and channels.
+```
+Usage: gvset <games | players | channels>
 ```
   
