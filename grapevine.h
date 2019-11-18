@@ -24,6 +24,9 @@
 #include "utils.h"
 #include "json.hpp"
 
+// the name of your game on Grapevine
+#define GVGAME "WoP"
+
 using json = nlohmann::json;
 
 #ifndef chPtr
@@ -52,6 +55,7 @@ namespace ix
             void processMessages();
             void processLog();
             void setSleeping(bool sleeping);
+            bool isSleeping();
 
             std::string encodeMessage(const std::string& text);
             void decodeMessage(const std::string& str);
@@ -79,15 +83,19 @@ namespace ix
             ix::WebSocket _webSocket;
             std::queue<std::string> _receivedQueue;
             std::queue<std::string> _logQueue;
+            std::queue<std::string> _sendQueue;
             bool _authenticated;
             bool _sleeping;
             mutable std::mutex _msgMutex;
             mutable std::mutex _logMutex;
+            mutable std::mutex _sendMutex;
+
             std::map<std::string, std::pair<chPtr, std::string>> _actions;
             std::queue<std::string> _processedActions;
             std::vector<std::string> _gameActions;
             bool _clearPlayers;
             bool _clearGames;
+            std::vector<std::string> _channels;
             
             void log(const std::string& msg);
             std::pair<chPtr, std::string> findAction(std::string g);
@@ -107,6 +115,8 @@ namespace ix
             void eventTellsReceive(json j);
             void eventGamesConnect(json j, bool connected);
             void eventGamesStatus(json j);
+            void processSends();
+
 
     };
 }

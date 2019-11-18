@@ -11,6 +11,7 @@
 *  Copyright (C) 1993, 94 by the Trustees of the Johns Hopkins University *
 *  CircleMUD is based on DikuMUD, Copyright (C) 1990, 1991.               *
 ***************************************************************************/
+//#include <mysql++/null.h>
 #define __GRAPEVINE_CPP__
 
 #include <crossguid/guid.hpp>
@@ -51,13 +52,15 @@ namespace ix
         _user_agent(user_agent)
 
     {
-        _sleeping = false;
+        setSleeping(false);
+        _channels.push_back("gossip");
+        _channels.push_back("testing");
     }
 
 // log Grapevine to mud system log
     void GvChat::log(const std::string& msg)
     {
-        if (_sleeping)
+        if (isSleeping())
         { // when sleeping, just write directly to the log
             basic_mud_log("GV CHAT: %s", msg.c_str());
         }
@@ -110,10 +113,28 @@ namespace ix
         }
     }
 
+// process send queue
+    void GvChat::processSends()
+    {
+        return;
+        std::lock_guard<std::mutex> lock(_sendMutex);
+        while(!_sendQueue.empty())
+        {
+            sendMessage(_sendQueue.front());
+            _sendQueue.pop();
+        }
+    }
+
 // toggle game sleeping status
     void GvChat::setSleeping(bool sleeping)
     {
         _sleeping = sleeping;
+    }
+
+// is the game sleeping?
+    bool GvChat::isSleeping()
+    {
+        return _sleeping;
     }
 
 // is Grapevine connected?
@@ -132,9 +153,9 @@ namespace ix
     void GvChat::start()
     {
         _webSocket.setUrl(_url);
-        
+
         std::stringstream ss;
-        log(std::string("Connecting to ") + _url);
+        log("Connecting to " + _url);
 
         _webSocket.setOnMessageCallback(
             [this](const WebSocketMessagePtr& msg)
@@ -142,7 +163,8 @@ namespace ix
                 std::stringstream ss;
                 if (msg->type == ix::WebSocketMessageType::Open)
                 { // if we're connected, authenticate
-                    log("Connected to " + _url + ". Authenticating...");
+                    ss << "Connected to: " << msg->openInfo.uri << std::endl;
+                    log(ss.str());
                     authenticate();
                 }
                 else if (msg->type == ix::WebSocketMessageType::Close)
@@ -156,8 +178,10 @@ namespace ix
                 }
                 else if (msg->type == ix::WebSocketMessageType::Message)
                 { // decode incoming messages immediately if sleeping
-                    if (_sleeping)
+                    if (isSleeping())
+                    {
                         decodeMessage(msg->str);
+                    }
                     else
                     { // queue messages if the game is active
                         std::lock_guard<std::mutex> lock(_msgMutex);
@@ -166,14 +190,10 @@ namespace ix
                 }
                 else if (msg->type == ix::WebSocketMessageType::Error)
                 { // log errors
-                    ss << "Connection error: " << msg->errorInfo.reason      
-                        << std::endl;
-                    ss << "#retries: "         << msg->errorInfo.retries
-                        << std::endl;
-                    ss << "Wait time(ms): "    << msg->errorInfo.wait_time
-                        << std::endl;
-                    ss << "HTTP Status: "      << msg->errorInfo.http_status
-                        << std::endl;
+                    ss << "Connection error: " << msg->errorInfo.reason;
+                    ss << " #retries: "        << msg->errorInfo.retries;
+                    ss << " Wait time(ms): "    << msg->errorInfo.wait_time;
+                    ss << " HTTP Status: "      << msg->errorInfo.http_status;
                     log(ss.str());
                     _authenticated = false;
                 }
@@ -195,7 +215,7 @@ namespace ix
         j["payload"]["client_id"] = _client_id;
         j["payload"]["client_secret"] = _client_secret;
         j["payload"]["supports"] = { "channels", "players", "tells", "games" };
-        j["payload"]["channels"] = { "gossip", "testing" };
+        j["payload"]["channels"] = _channels;
         j["payload"]["version"] = _version;
         j["payload"]["user_agent"] = _user_agent;
         _authenticated = false;
@@ -228,7 +248,7 @@ namespace ix
             eventSignOut(j);
         else if (event == "players/status")
             eventPlayersStatus(j);
-        else if (_sleeping)
+        else if (isSleeping())
             return; // only the events above are procssed while sleeping
         else if (event == "channels/broadcast")
             eventBroadcast(j);
@@ -250,7 +270,7 @@ namespace ix
     {
         std::stringstream ss;
 
-        ss << _url << " Authentication status: " << j["status"];
+        ss << "Authentication status: " << j["status"];
 
         if (j["status"] == "success")
         {
@@ -259,6 +279,8 @@ namespace ix
             _authenticated = true;
             updateGamesStatus();
             updatePlayersStatus();
+            processSends();
+            updateGamesStatus(GVGAME);
         }
         else
             _authenticated = false;
@@ -269,26 +291,25 @@ namespace ix
 // heartbeat event handler
     void GvChat::eventHeartbeat(json j)
     {
-        chPtr tch;
+        chPtr tch = nullptr;
         vector <std::string> players;
         json k;
 
         k["event"] = "heartbeat";
 
         // no players if sleeping
-        if (!_sleeping)
+        if (!isSleeping())
         { // build list of players for heartbeat
-            for (auto &d : descriptor_list) 
+            for (auto &d : descriptor_list)
             {
-                if (d->original)
+                if (d->original) {
                     tch = d->original;
-                else if (!(tch = d->character))
+                } else if (!(tch = d->character) || STATE(d) != CON_PLAYING) {
                     continue;
-                else if (STATE(d) != CON_PLAYING)
-                    continue; // don't show players that aren't in the game
-                if (IS_GOD(tch) && GET_INVIS_LEV(tch))
+                }
+                if (IS_GOD(tch) && GET_INVIS_LEV(tch)) {
                     continue; // don't show invisible gods
-
+                }
                 players.push_back(GET_NAME(tch));
             }
             k["payload"]["players"] = players;
@@ -305,14 +326,14 @@ namespace ix
         log(ss.str());
     }
 
-// TODO: not yet implemented
+// TODO(Blizzard): not yet implemented
 // channels/subscribe event handler
     void GvChat::eventSubscribe(json j)
     {
 
     }
 
-// TODO: not yet implemented
+// TODO(Blizzard): not yet implemented
 // channels/unsubscribe event handler
     void GvChat::eventUnsubscribe(json j)
     {
@@ -322,17 +343,26 @@ namespace ix
 // channels/broadcast event handler
     void GvChat::eventBroadcast(json j)
     {
-        std::string channel = j["payload"]["channel"];
-        std::string message = j["payload"]["message"];
-        std::string name = j["payload"]["name"];
-        std::string game = j["payload"]["game"];
+        std::string channel, message, name, game;
+        if (j["payload"]["channel"].is_string()) {
+            channel = j["payload"]["channel"];
+        }
+        if (j["payload"]["message"].is_string()) {
+            message = j["payload"]["message"];
+        }
+        if (j["payload"]["name"].is_string()) {
+            name = j["payload"]["name"];
+        }
+        if (j["payload"]["game"].is_string()) {
+            game = j["payload"]["game"];
+        }
 
-        for (auto &i : descriptor_list) 
+        for (auto &i : descriptor_list)
         {
             if (i->character && can_hear_check(i->character))
             {
                 send_to_char(i->character, \
-                    "%sGV [%s] %s@%s%s%s: %s.%s", \
+                    "%sGV [%s] %s@%s%s%s: %s.%s\r\n", \
                     CCYEL(i->character, C_NRM), channel.c_str(), \
                     name.c_str(), CBBLU(i->character, C_NRM), \
                     game.c_str(), CCYEL(i->character, C_NRM), \
@@ -348,22 +378,27 @@ namespace ix
         // no payload means this is one of our players signing in
         if (!j["payload"].is_object())
         {  // notify a character with given reference of sign in
-            if (_sleeping)
+            if (isSleeping()) {
                 return;
+            }
             std::string refStr = j["ref"];
             auto a = findAction(refStr);
             chPtr ch = a.first;
-            if (!ch)
+            if (!ch) {
                 return;
+            }
             send_to_char(ch, "%sYou have been signed in to Grapevine Chat.%s",
                 CBYEL(ch, C_NRM), CCNRM(ch, C_NRM));
+            updateGamesStatus(GVGAME);
             return;
         }
-        else 
+        else
         { // we have a payload, a player signed in from another game
             std::string name = j["payload"]["name"];
             std::string game = j["payload"]["game"];
 
+            updateGamesStatus(game);
+            
             // avoid duplicates
             bool foundPlayer = false;
             if (!playersOnline[game].empty())
@@ -375,16 +410,17 @@ namespace ix
                     }
             if (!foundPlayer)
                 playersOnline[game].push_back(name);
-            
-            return;
 
-            for (auto &i : descriptor_list) 
-            { // TODO: player toggle option, disabled for now
-                if (i->character && can_hear_check(i->character))
+            for (auto &i : descriptor_list)
+            {
+                if (i->character && can_hear_check(i->character) &&
+                    PLT_FLAGGED(i->character, PLT_GVPLAYERS))
                 {
                     send_to_char(i->character,
-                        "GV: %s has signed in to %s.\r\n",
-                        name.c_str(), game.c_str());
+                        "%sGV: %s has signed in to %s%s%s.\r\n",
+                        CCYEL(i->character, C_NRM), name.c_str(),
+                        CBBLU(i->character, C_NRM), game.c_str(),
+                        CCNRM(i->character, C_NRM));
                 }
             }
         }
@@ -396,7 +432,9 @@ namespace ix
         std::string name = j["payload"]["name"];
         std::string game = j["payload"]["game"];
 
+        updateGamesStatus(game);
         if (!playersOnline[game].empty())
+        {
             for (auto p = playersOnline[game].begin();
                 p != playersOnline[game].end();)
             {
@@ -405,18 +443,21 @@ namespace ix
                 else
                   ++p;
             }
-        return;
+        }
 
-        if (_sleeping)
+        if (isSleeping())
             return;
 
-        for (auto &i : descriptor_list) 
+        for (auto &i : descriptor_list)
         {
-            if (i->character && can_hear_check(i->character))
-            { // TODO: player toggle option, disabled for now
+            if (i->character && can_hear_check(i->character) &&
+                PLT_FLAGGED(i->character, PLT_GVPLAYERS))
+            {
                 send_to_char(i->character,
-                    "GV: %s has signed out of %s.\r\n",
-                    name.c_str(), game.c_str());
+                    "%sGV: %s has signed out of %s%s%s.\r\n",
+                    CCYEL(i->character, C_NRM), name.c_str(),
+                    CBBLU(i->character, C_NRM), game.c_str(),
+                    CCNRM(i->character, C_NRM));
             }
         }
         return;
@@ -458,7 +499,7 @@ namespace ix
         chPtr ch = a.first;
         if (!ch || a.second.empty())
             return;
-        
+
         if (j["event"] == "tells/send")
             send_to_char(ch, "%s%s%s", \
                 CCRED(ch, C_NRM), a.second.c_str(), CCNRM(ch, C_NRM));
@@ -476,7 +517,7 @@ namespace ix
         std::string to_name = j["payload"]["to_name"];
         std::string message = j["payload"]["message"];
 
-        for (auto &i : descriptor_list) 
+        for (auto &i : descriptor_list)
         { // loop through all online players
             if (i->character && can_hear_check(i->character) &&
                 !str_cmp(GET_NAME(i->character), to_name.c_str()))
@@ -507,12 +548,13 @@ namespace ix
             gameStatus.erase(game);
         }
 
-        if (_sleeping)
+        if (isSleeping())
             return;
 
-        for (auto &i : descriptor_list) 
+        for (auto &i : descriptor_list)
         {
-            if (STATE(i) != CON_PLAYING || !i->character)
+            if (STATE(i) != CON_PLAYING || !i->character ||
+                !PLT_FLAGGED(i->character, PLT_GVGAMES))
                 continue;
 
             if (connected)
@@ -529,7 +571,7 @@ namespace ix
                     CCNRM(i->character, C_NRM));
         }
     }
-    
+
 // games/status event handler
     void GvChat::eventGamesStatus(json j)
     {
@@ -548,22 +590,17 @@ namespace ix
         return;
     }
 
-// TODO: queue messages when not online
 // send a json message to GV if we're online
     void GvChat::sendMessage(json j)
     {
         std::string event = j["event"];
-        if (!isReady())
-        {  // make sure the socket is ready before sending
-            log("Attempting to send message when not ready: " + j.dump());
+        if (!isReady() || (event != "authenticate" && !_authenticated))
+        {  // queue sent messages if not connected or authenticated
+            std::lock_guard<std::mutex> lock(_sendMutex);
+            _sendQueue.push(j.dump());
             return;
         }
-        else if (event != "authenticate" && !_authenticated)
-        {  // make sure we're authenticated before sending
-            log("Attempting to send message when not authenticated:"
-                + j.dump());
-            return;
-        }
+ 
         std::string output;
         output = j.dump();
         _webSocket.sendText(output);
@@ -574,20 +611,50 @@ namespace ix
     {
         json j;
         auto g = newAction(ch);
+        std::string name = GET_NAME(ch);
         j["event"] = "players/sign-in";
         j["ref"] = g;
-        j["payload"] = { { "name", GET_NAME(ch) }};
+        j["payload"] = { { "name", name }};
         sendMessage(j);
+
+        // update local player
+        bool foundPlayer = false;
+        if (!playersOnline[GVGAME].empty())
+        {
+            for (auto p : playersOnline[GVGAME])
+                if (p == name)
+                {
+                    foundPlayer = true;
+                    break;
+                }
+        }
+        if (!foundPlayer) {
+            playersOnline[GVGAME].push_back(name);
+        }
     }
 
 // notify GV when players sign out
     void GvChat::playerSignOut(chPtr ch)
     {
         json j;
+        std::string name = GET_NAME(ch);
         j["event"] = "players/sign-out";
-        j["payload"] = { { "name", GET_NAME(ch) }};
+        j["payload"] = { { "name", name }};
         sendMessage(j);
         eraseActions(ch);
+
+        // remove from local game list of players
+        if (!playersOnline[GVGAME].empty())
+        {
+            for (auto p = playersOnline[GVGAME].begin();
+                p != playersOnline[GVGAME].end();)
+            {
+                if (*p == name)
+                   p = playersOnline[GVGAME].erase(p);
+                else
+                  ++p;
+            }
+        }
     }
 
 // get status for players
@@ -624,13 +691,13 @@ namespace ix
     void GvChat::sendChannel(chPtr ch, const std::string &message)
     {
         json j;
-        std::string aMessage("GV [" + *ch->gvChannel + "] "
-         + std::string(GET_NAME(ch)) + "@WoP:" + message + "\r\n");
+        std::string aMessage("GV [" + *ch->player.gvChannel + "] "
+         + std::string(GET_NAME(ch)) + "@" + GVGAME + ":" + message + "\r\n");
         auto g = newAction(ch, aMessage);
         j["event"] = "channels/send";
         j["ref"] = g;
-        j["payload"] = { 
-            { "channel", *ch->gvChannel },
+        j["payload"] = {
+            { "channel", *ch->player.gvChannel },
             { "name", GET_NAME(ch) },
             { "message", message } };
         sendMessage(j);
@@ -652,10 +719,10 @@ namespace ix
         std::stringstream ssTp;
         ssTp << std::put_time(gmtime(&itt), "%FT%TZ");
         std::string sent_at = ssTp.str();
-  
+
         j["event"] = "tells/send";
         j["ref"] = g;
-        j["payload"] = { 
+        j["payload"] = {
             { "to_name", to_name },
             { "to_game", to_game },
             { "from_name", GET_NAME(ch) },
@@ -710,11 +777,11 @@ namespace ix
     {
         auto g = xg::newGuid();
         playersStatus(g, game);
-        if (game.empty())
+        if (game.empty()) {
             _clearPlayers = true;
-        else
+        } else {
             _clearPlayers = false;
-
+        }
     }
 }
 
@@ -730,26 +797,33 @@ ACMD(do_gvplayer)
       return;
   }
 
-  if (affected_by_spell(ch, SPELL_BLINDNESS)) 
+  if (affected_by_spell(ch, SPELL_BLINDNESS))
   {
     send_to_char(ch, "You have been blinded! You cannot see this list!\r\n");
     return;
   }
 
   std::string game(removeSpaces(argument));
+  std::stringstream ss;
 
   if (game.empty()) // all games
   {
-      sprintf(buf, "%sPlayers online in Grapevine games:%s\r\n",
-        CBYEL(ch, C_NRM), CCNRM(ch, C_NRM));
       int games = 0, total = 0;
       vector <std::string> noPlayers;
 
       for (const auto &[g, j]: GvChat->gameStatus)
       {
         int count = 0;
-        if (!j.empty() && j["player_online_count"].is_number_integer())
+        if (!j.empty() && j["player_online_count"].is_number_integer()) {
           count = j["player_online_count"].get<int>();
+        }
+        if (!GvChat->playersOnline[g].empty())
+        {
+            if (GvChat->playersOnline[g].size() > count)
+            {
+                count = GvChat->playersOnline[g].size();
+            }
+        }
         total += count;
         ++games;
         if (!count)
@@ -757,52 +831,48 @@ ACMD(do_gvplayer)
             noPlayers.push_back(g);
             continue;
         }
-        else if (count == 1)
-            sprintf(buf, "%s%s1 player online in %s%s%s:", buf,
-                CCYEL(ch, C_NRM), CBBLU(ch, C_NRM), g.c_str(),
-                CCNRM(ch, C_NRM));
         else
-            sprintf(buf, "%s%s%d players online in %s%s%s:", buf,
-                CCYEL(ch, C_NRM), count, CBBLU(ch, C_NRM), g.c_str(),
-                CCNRM(ch, C_NRM));
+            ss << CCYEL(ch, C_NRM) << count << " player"
+               << (count == 1 ? "" : "s") << " online on "
+               << CBBLU(ch, C_NRM) << g << CCNRM(ch, C_NRM) << ":";
         for (const auto &p : GvChat->playersOnline[g])
         {
-          sprintf(buf, "%s %s", buf, p.c_str());
+          ss << " " << p;
         }
-        sprintf(buf, "%s%s\r\n", buf, CCNRM(ch, C_NRM));
+        ss << CCNRM(ch, C_NRM) << endl;
       }
       if (noPlayers.size())
       {
-        sprintf(buf, "%s%sNo players online in:%s", buf,
-                CCYEL(ch, C_NRM), CBBLU(ch, C_NRM));
+        ss << CCYEL(ch, C_NRM) << "No players online on:" << CBBLU(ch, C_NRM);
         for (const auto &g: noPlayers)
-          sprintf(buf, "%s %s", buf, g.c_str());
-        sprintf(buf, "%s\r\n", buf);
+          ss << " " << g;
+        ss << CCNRM(ch, C_NRM) << endl;
       }
-      sprintf(buf, "%s%s%d players online in %d games.%s\r\n", buf, 
-          CBGRN(ch, C_NRM), total, games, CCNRM(ch, C_NRM));
+      sprintf(buf, "%s%d players in %d games on Grapevine:%s\r\n%s",
+          CBYEL(ch, C_NRM), total, games, CCNRM(ch, C_NRM), ss.str().c_str());
       page_string(ch->desc, buf, TRUE, "");
   }
   else
   {
       if (!GvChat->gameStatus.count(game))
       {
-        send_to_char(ch, "Game %s not found in Grapevine.\r\n", game.c_str());
+        send_to_char(ch, "Game %s not found on Grapevine.\r\n", game.c_str());
         return;
       }
       int count = GvChat->playersOnline[game].size();
-      sprintf(buf, "player%s online in Grapevine game %s%s%s%s",
-        (count == 1) ? "" : "s", CBBLU(ch, C_NRM), game.c_str(), CCNRM(ch, C_NRM),
-        count ? ": " : "");
+      sprintf(buf, "player%s in Grapevine game %s%s%s%s",
+        (count == 1) ? "" : "s", CBBLU(ch, C_NRM), game.c_str(),
+        CCNRM(ch, C_NRM), count ? ": " : "");
       for (auto &p : GvChat->playersOnline[game])
       {
-          sprintf(buf, "%s%s%s%s ", buf, 
+          sprintf(buf, "%s%s%s%s ", buf,
             CCYEL(ch, C_NRM), p.c_str(), CCNRM(ch, C_NRM));
       }
-      if (count)
+      if (count) {
         sprintf(buf1, "%s%d %s", CBYEL(ch, C_NRM), count, buf);
-      else
+      } else {
         sprintf(buf1, "%sNo %s", CBYEL(ch, C_NRM), buf);
+      }
       page_string(ch->desc, buf1, TRUE, "");
 
   }
@@ -822,30 +892,39 @@ ACMD(do_gvgame)
   std::stringstream ss;
 
   if (game.empty())  // all games
-  { 
-    int games = 0, total = 0;
-    ss << CBYEL(ch, C_NRM) << "Games online in Grapevine:";
-    ss << CCNRM(ch, C_NRM) << endl;
+  {
+    int games = 0, total = 0, player_online_count = 0;
 
     for (const auto [g, j] : GvChat->gameStatus)
     {
         ss << "(" << CBBLU(ch, C_NRM) << g << \
             CCNRM(ch, C_NRM) << ") ";
-        if (j["display_name"].is_string())
+        if (j["display_name"].is_string()) {
             ss << CCYEL(ch, C_NRM) << j["display_name"].get<std::string>();
-        ss << CCNRM(ch, C_NRM);
-        if (j["player_online_count"].is_number())
-        {
-            ss << " (Players Online: " << j["player_online_count"].get<int>()
-              << ")";
-            total += j["player_online_count"].get<int>();
         }
+        ss << CCNRM(ch, C_NRM);
+ 
+        if (!GvChat->playersOnline[game].empty())
+        {
+            player_online_count = GvChat->playersOnline[game].size();
+        }
+        else
+        {
+            player_online_count = j["player_online_count"].get<int>();
+        }
+
+        if (player_online_count > 0)
+        {
+            ss << " (Players Online: " << player_online_count << ")";
+            total += player_online_count;
+        }
+  
         ss << endl;
-        
+
         ++games;
     }
-    sprintf(buf, "%s%s%d players online in %d games.%s\r\n", ss.str().c_str(), 
-          CBGRN(ch, C_NRM), total, games, CCNRM(ch, C_NRM));
+    sprintf(buf, "%s%d players online on %d games in Grapevine:%s\r\n%s",
+          CBYEL(ch, C_NRM), total, games, CCNRM(ch, C_NRM), ss.str().c_str());
     page_string(ch->desc, buf, TRUE, "");
   }
   else  // specific game
@@ -856,6 +935,15 @@ ACMD(do_gvgame)
         return;
     }
     json g = GvChat->gameStatus[game];
+    int player_online_count = 0;
+    if (!GvChat->playersOnline[game].empty())
+    {
+        player_online_count = GvChat->playersOnline[game].size();
+    }
+    else if (g["player_online_count"].is_number())
+    {
+        player_online_count = g["player_online_count"].get<int>();
+    }
 
     ss << CBYEL(ch, C_NRM) << "GV Game: " << CCNRM(ch, C_NRM) << "("
         << CBBLU(ch, C_NRM) << g["game"].get<std::string>()
@@ -872,9 +960,8 @@ ACMD(do_gvgame)
     if (g["user_agent_repo_url"].is_string())
         ss << CCYEL(ch, C_NRM) << "Repo URL: " << CCNRM(ch, C_NRM)
             << g["user_agent_repo_url"].get<std::string>() << endl;
-    if (!g["player_online_count"].empty())
-        ss << CCYEL(ch, C_NRM) << "Players Online: "
-            << CCNRM(ch, C_NRM) << g["player_online_count"] << endl;
+    ss << CCYEL(ch, C_NRM) << "Players Online: "
+        << CCNRM(ch, C_NRM) << player_online_count << endl;
     if (g["supports"].is_array())
     {
         ss << CCYEL(ch, C_NRM) << "Supports: " << CCNRM(ch, C_NRM);
@@ -917,7 +1004,7 @@ ACMD(do_gvtell)
       return;
   }
 
-  if (affected_by_spell(ch, SPELL_BLINDNESS)) 
+  if (affected_by_spell(ch, SPELL_BLINDNESS))
   {
     send_to_char(ch, "You have been blinded! You cannot GVTell anyone anything!\r\n");
     return;
@@ -937,7 +1024,7 @@ ACMD(do_gvtell)
   string item;
   char delim = '@';
 
-  while (getline (ss, item, delim)) 
+  while (getline (ss, item, delim))
   {
     dest.push_back(item);
   }
@@ -969,27 +1056,28 @@ ACMD(do_gvchannel)
   // change channel if the first arg is a channel name
   if (channel == "gossip" || channel == "testing")
   {
-      if (ch->gvChannel)
-        delete ch->gvChannel;
-      ch->gvChannel = new std::string(channel);
+      if (ch->player.gvChannel)
+        delete ch->player.gvChannel;
+      ch->player.gvChannel = new std::string(channel);
       send_to_char(ch, "%sGV: Channel set to %s%s", CCYEL(ch, C_NRM), arg,
         CCNRM(ch, C_NRM));
       return;
   }
 
   // set default channel to gossip
-  if (!ch->gvChannel)
-    ch->gvChannel = new std::string("gossip");
+  if (!ch->player.gvChannel)
+    ch->player.gvChannel = new std::string("gossip");
 
   if (!message.empty())
   {
     GvChat->sendChannel(ch, message);
-    message = "GV [" + *ch->gvChannel + "] " + GET_NAME(ch) + ":" + message;
+    message = "GV [" + *ch->player.gvChannel + "] " + GET_NAME(ch) + ":" + message;
 
     // send Grapevine message to all players that can hear
-    for (auto &i : descriptor_list) 
+    for (auto &i : descriptor_list)
     {
-        if (i->character && can_hear_check(i->character) && i != ch->desc)
+        if (i->character && can_hear_check(i->character) && i != ch->desc &&
+            i->character->player.gvChannel)
         {
             send_to_char(CCYEL(i->character, C_NRM), i->character);
             act(message.c_str(), FALSE, ch, 0, i->character,
@@ -1000,4 +1088,53 @@ ACMD(do_gvchannel)
   }
   else
     send_to_char(ch, "Say what on the Grapevine??\r\n");
+}
+
+// set Grapevine preferences
+ACMD(do_gvset)
+{
+  // no mobs allowed!
+  if (IS_NPC(ch))
+  {
+      send_to_char(ch, "Only players are allowed on Grapevine!");
+      return;
+  }
+
+  one_argument(argument, buf);
+
+  if (!*buf)
+  {
+    send_to_char(ch,
+      "Usage: gvset <games | players | channels>\r\n");
+    return;
+  }
+
+
+  if (is_abbrev(buf, "games"))
+  {
+      // toggle games
+      TOGGLE_BIT(PLT_FLAGS(ch), PLT_GVGAMES);
+      send_to_char(ch, "Grapevine game status messages are now %s.",
+        ONOFF(PLT_FLAGGED(ch, PLT_GVGAMES)));
+  }
+  else if (is_abbrev(buf, "players"))
+  {
+      // toggle players
+      TOGGLE_BIT(PLT_FLAGS(ch), PLT_GVPLAYERS);
+      send_to_char(ch, "Grapevine player status messages are now %s.",
+        ONOFF(PLT_FLAGGED(ch, PLT_GVPLAYERS)));
+  }
+  else if (is_abbrev(buf, "channels"))
+  {
+      // toggle channel messages
+      TOGGLE_BIT(PLT_FLAGS(ch), PLT_GVNOCHANNELS);
+      send_to_char(ch, "Grapevine channel messages are now %s.",
+        ONOFF(!PLT_FLAGGED(ch, PLT_GVNOCHANNELS)));
+  }
+  else
+  {
+    send_to_char(ch,
+      "Usage: gvset <games | players | channels>\r\n");
+    return;
+  }
 }
