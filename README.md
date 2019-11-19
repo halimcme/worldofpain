@@ -1,4 +1,6 @@
 # [World of Pain](https://worldofpa.in)
+[![Grapevine](https://img.shields.io/badge/Grapevine-MUD%20Chat%20Network-brightgreen.svg)](https://grapevine.haus/)
+[![MUD Coders Slack](https://slack.mudcoders.com/badge.svg)](https://slack.mudcoders.com/)
 World of Pain public code snippets (should be adaptable to most Circle/tba-based MUDs)
 * [Grapevine chat support for CircleMUD/tbaMUD](GRAPEVINE.md)
 * [Mudlet MMP format XML mapping for CircleMUD/tbaMUD](XMLMAP.md)
