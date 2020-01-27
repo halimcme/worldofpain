@@ -90,6 +90,21 @@ At the end of enter_player_game before the return:
 ```
   GvChat->playerSignIn(d->character);
 ```
+* utils.c:
+At the end of the file:
+```
+// Function to remove all spaces from a given string 
+string removeSpaces(string str)  
+{ 
+    str.erase(remove(str.begin(), str.end(), ' '), str.end()); 
+    return str; 
+}
+```
+* utils.h:
+At the end of your function definitions:
+```
+string removeSpaces(string str); 
+```
 * structs.h:
 At the top in the includes section:
 ```
