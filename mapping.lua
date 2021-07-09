@@ -1,3 +1,8 @@
+-- generic GMCP mapping script for Mudlet
+-- by Blizzard. https://worldofpa.in
+-- based upon an MSDP script from the Mudlet forums in the generic mapper thread
+-- with pieces from the generic mapper script and the mmpkg mapper by breakone9r
+
 map = map or {}
 map.room_info = map.room_info or {}
 map.prev_info = map.prev_info or {}
