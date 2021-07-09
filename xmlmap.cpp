@@ -4,7 +4,7 @@
 *                                                                         *
 *  All rights reserved.  See license.doc for complete information.        *
 *                                                                         *
-*  Copyright (C) 2019 World of Pain                                       *
+*  Copyright (C) 2021 World of Pain                                       *
 ***************************************************************************/
 
 
@@ -83,10 +83,14 @@ void generateWorldMap()
   int currentRoom = 0; // current room vnum
   map<int,bg::model::point<long, 3, bg::cs::cartesian>> coordsMap;
   bg::model::point<long, 3, bg::cs::cartesian> currentCoords;
-  int furthestEast = 0;
-  for( auto const& [nr, rm] : world )
+  int x,y,z;
+  vector<room_num> zoneRooms;
+
+  // WORLD LOOP of all rooms
+  for( auto const [nr, rm] : world )
   {
-    if (rm->zone == 255)
+    // skip Dark Tower, NOMAP rooms, and houses
+    if (rm->zone == 255 || ROOM_FLAGGED(nr, ROOM_NOMAP) || ROOM_FLAGGED(nr, ROOM_HOUSE)) 
       continue;
     
     currentRoom =  nr;
@@ -96,96 +100,155 @@ void generateWorldMap()
     room->SetAttribute("title", rm->name);
     room->SetAttribute("environment", rm->sector_type);
 
-    // is this the first room?
-    if (rm->zone != prevRoomZone)
+    // is this the first room of a zone? handle cleanup from previous zone
+    if ((rm->zone != prevRoomZone || nr == world.rbegin()->first) && !coordsMap.empty())
+  { // loop through existing XML room elements to add the coords
+    // why is this necessary? -bliz
+    int pass = 0;
+    int totalC = 0;
+    while(1)
     {
-      if (!coordsMap.empty())
+      int addedCoords = 0;
+      for (auto zr : zoneRooms)
       {
-        for (XMLElement * r = rooms->FirstChildElement("room"); r != NULL; r=r->NextSiblingElement())
+        if (coordsMap.count(zr))
+          continue;
+        // see if any exit rooms have coords
+        for (int door = 0; door < NUM_OF_DIRS; door++)
         {
-          if (r->IntAttribute("area") != prevRoomZone)
+          if (!W_EXIT(zr, door))
             continue;
-            
-          if(r->FirstChildElement("coord"))
+
+          room_num eRoomNum = W_EXIT(zr, door)->to_room;
+
+          if (eRoomNum == NOWHERE || !world.count(eRoomNum)
+              || GET_ROOM_ZONE(eRoomNum) == 255)
             continue;
-          
-          if (coordsMap.count(r->IntAttribute("id")))
+
+          if (coordsMap.count(eRoomNum))
           {
-            XMLElement * c = doc.NewElement("coord");
-            c->SetAttribute("x", coordsMap[r->IntAttribute("id")].get<0>());
-            c->SetAttribute("y", coordsMap[r->IntAttribute("id")].get<1>());
-            c->SetAttribute("z", coordsMap[r->IntAttribute("id")].get<2>());
-            r->InsertEndChild(c);
+            coordsMap[zr].set<0>(coordsMap[eRoomNum].get<0>() + (-1 * dir_offsets[door][0]));
+            coordsMap[zr].set<1>(coordsMap[eRoomNum].get<1>() + (-1 * dir_offsets[door][1]));
+            coordsMap[zr].set<2>(coordsMap[eRoomNum].get<2>() + (-1 * dir_offsets[door][2]));
+            addedCoords++;
           }
+        } // for (int door...
+      } // for (auto zr...
+      pass++;
+      totalC += addedCoords;
+      if (addedCoords == 0)
+      {
+        do_log("added %d coords in %d passes", totalC, pass);
+        break;
+      }
+    } // while(1)
+      // see if any exit rooms have coords
+      for (int door = 0; door < NUM_OF_DIRS; door++)
+      {
+        if (!W_EXIT(nr, door))
+          continue;
+
+        room_num eRoomNum = W_EXIT(nr, door)->to_room;
+
+        if (eRoomNum == NOWHERE || !world.count(eRoomNum)
+            || GET_ROOM_ZONE(eRoomNum) == 255)
+          continue;
+
+        if (coordsMap.count(eRoomNum))
+        {
+          coordsMap[currentRoom].set<0>(coordsMap[eRoomNum].get<0>() + (-1 * dir_offsets[door][0]));
+          coordsMap[currentRoom].set<1>(coordsMap[eRoomNum].get<1>() + (-1 * dir_offsets[door][1]));
+          coordsMap[currentRoom].set<2>(coordsMap[eRoomNum].get<2>() + (-1 * dir_offsets[door][2]));
         }
       }
+      for (XMLElement * r = rooms->FirstChildElement("room"); r != NULL; r=r->NextSiblingElement())
+      {
+        // skip rooms where we aren't in the previous zone or alredy have coords
+        if (r->IntAttribute("area") != prevRoomZone 
+            || r->FirstChildElement("coord"))
+          continue;
+
+        room_num lastRoom = r->IntAttribute("id");
+        if (coordsMap.count(lastRoom))
+        {
+          XMLElement * c = doc.NewElement("coord");
+          c->SetAttribute("x", coordsMap[lastRoom].get<0>());
+          c->SetAttribute("y", coordsMap[lastRoom].get<1>());
+          c->SetAttribute("z", coordsMap[lastRoom].get<2>());
+          r->InsertEndChild(c);
+        }      
+      }
+      // we've finished adding coords for the previous zone to the XML, start fresh
       firstRoom = true;
+      do_log("zone %d had %lu rooms and %lu coords", prevRoomZone, zoneRooms.size(), coordsMap.size());
       coordsMap.clear();
-      furthestEast = 0;
-    } // does the current room have coords?
+      zoneRooms.clear();
+    } // if the current room doesn't have coords, try and find them
     else if (!coordsMap.count(currentRoom))
     { 
       // see if any exit rooms have coords
       for (int door = 0; door < NUM_OF_DIRS; door++)
       {
-        if (W_EXIT(nr, door) && !world.count(W_EXIT(nr, door)->to_room))
+        if (!W_EXIT(nr, door))
           continue;
-          
-        if (W_EXIT(nr, door) && W_EXIT(nr, door)->to_room != NOWHERE &&
-            world[W_EXIT(nr, door)->to_room]->zone != 255 )
-        {
-            int eRoomNum = W_EXIT(nr, door)->to_room;
-            if (coordsMap.count(eRoomNum))
-            {
-              coordsMap[currentRoom].set<0>(coordsMap[eRoomNum].get<0>() + (-1 * dir_offsets[door][0]));
-              coordsMap[currentRoom].set<1>(coordsMap[eRoomNum].get<1>() + (-1 * dir_offsets[door][1]));
-              coordsMap[currentRoom].set<2>(coordsMap[eRoomNum].get<2>() + (-1 * dir_offsets[door][2]));
 
-            }
+        room_num eRoomNum = W_EXIT(nr, door)->to_room;
+
+        if (eRoomNum == NOWHERE || !world.count(eRoomNum)
+            || GET_ROOM_ZONE(eRoomNum) == 255)
+          continue;
+
+        if (coordsMap.count(eRoomNum))
+        {
+          coordsMap[currentRoom].set<0>(coordsMap[eRoomNum].get<0>() + (-1 * dir_offsets[door][0]));
+          coordsMap[currentRoom].set<1>(coordsMap[eRoomNum].get<1>() + (-1 * dir_offsets[door][1]));
+          coordsMap[currentRoom].set<2>(coordsMap[eRoomNum].get<2>() + (-1 * dir_offsets[door][2]));
         }
       }
     }
-      
+
+    zoneRooms.push_back(nr);
     roomHasExit = false;
     for (int door = 0; door < NUM_OF_DIRS; door++)
     {
-        if (W_EXIT(nr, door) && !world.count(W_EXIT(nr, door)->to_room))
-            continue;
+      if (!W_EXIT(nr, door))
+        continue;
+
+      int eRoomNum = W_EXIT(nr, door)->to_room;
+
+      if (eRoomNum == NOWHERE || !world.count(eRoomNum)
+          || ROOM_FLAGGED(eRoomNum, ROOM_NOMAP)
+          || ROOM_FLAGGED(eRoomNum, ROOM_HOUSE)
+          || GET_ROOM_ZONE(eRoomNum) == 255
+          || currentRoom == eRoomNum)
+          continue;
             
-        if (W_EXIT(nr, door) && W_EXIT(nr, door)->to_room != NOWHERE &&
-            world[W_EXIT(nr, door)->to_room]->zone != 255 )
-        {
-            roomHasExit = true;
-            int eRoomNum = W_EXIT(nr, door)->to_room;
+      roomHasExit = true;
 
-            // only find exit coordinates if we are not the exit target!
-            if (currentRoom != eRoomNum)
-            { // first room always starts at 0,0,0
-              if (firstRoom)
-              {
-                coordsMap[eRoomNum].set<0>(dir_offsets[door][0]); // x
-                coordsMap[eRoomNum].set<1>(dir_offsets[door][1]); // y
-                coordsMap[eRoomNum].set<2>(dir_offsets[door][2]); // z
-              } // does the current room have a coordinate?
-              else if (coordsMap.count(currentRoom))
-              { // set exit room coords based on currentRoom
-                coordsMap[eRoomNum].set<0>(coordsMap[currentRoom].get<0>() + dir_offsets[door][0]);
-                coordsMap[eRoomNum].set<1>(coordsMap[currentRoom].get<1>() + dir_offsets[door][1]);
-                coordsMap[eRoomNum].set<2>(coordsMap[currentRoom].get<2>() + dir_offsets[door][2]);
-              } // no coords for current room
-            }
-            // skip adding the exit to the map if the door is closed
-            if  (IS_SET(W_EXIT(nr, door)->exit_info, EX_CLOSED))
-              continue;
+      // first room always starts at 0,0,0
+      if (firstRoom)
+      {
+        coordsMap[eRoomNum].set<0>(dir_offsets[door][0]); // x
+        coordsMap[eRoomNum].set<1>(dir_offsets[door][1]); // y
+        coordsMap[eRoomNum].set<2>(dir_offsets[door][2]); // z
+      } // does the current room have a coordinate?
+      else if (coordsMap.count(currentRoom))
+      { // set exit room coords based on currentRoom
+        coordsMap[eRoomNum].set<0>(coordsMap[currentRoom].get<0>() + dir_offsets[door][0]);
+        coordsMap[eRoomNum].set<1>(coordsMap[currentRoom].get<1>() + dir_offsets[door][1]);
+        coordsMap[eRoomNum].set<2>(coordsMap[currentRoom].get<2>() + dir_offsets[door][2]);
+      } // no coords for current room
 
-            XMLElement * exit = doc.NewElement("exit");
-            exit->SetAttribute("direction", dirs[door]);
-            exit->SetAttribute("target", eRoomNum);
-            room->InsertEndChild(exit);
-            
+      // skip adding the exit to the map if the door is closed
+      if  (IS_SET(W_EXIT(nr, door)->exit_info, EX_CLOSED))
+        continue;
 
-        }
+      XMLElement * exit = doc.NewElement("exit");
+      exit->SetAttribute("direction", dirs[door]);
+      exit->SetAttribute("target", eRoomNum);
+      room->InsertEndChild(exit);
     }
+
     if (roomHasExit)
     {
       if (firstRoom)
@@ -207,14 +270,26 @@ void generateWorldMap()
         coords->SetAttribute("y", coordsMap[currentRoom].get<1>());
         coords->SetAttribute("z", coordsMap[currentRoom].get<2>());
         room->InsertEndChild(coords);
-
-      
       }
-      
       rooms->InsertEndChild(room);
     }
     prevRoomZone = rm->zone;
+  } // end of WORLD LOOP of all rooms
+
+  // delete rooms with no coords from the map
+  int deletedRooms = 0;
+  XMLElement *nextRoom;
+  for (XMLElement * r = rooms->FirstChildElement("room"); r != NULL;)
+  {
+    nextRoom = r->NextSiblingElement();
+    if (!r->FirstChildElement("coord"))
+    {
+      rooms->DeleteChild(r);
+      deletedRooms++;
+    }
+    r = nextRoom;
   }
+  do_log("XMLMap: deleted %d rooms without coords", deletedRooms);
 
   XMLElement * sects = doc.NewElement("environments");
   pRoot->InsertEndChild(sects);
@@ -232,4 +307,3 @@ void generateWorldMap()
   XMLError eResult = doc.SaveFile("/var/www/wop/maps/map.xml");
 
 }
-
