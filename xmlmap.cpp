@@ -1,5 +1,5 @@
 /**************************************************************************
-*   File: xmlmap.c                                  Part of World of Pain *
+*   File: xmlmap.cpp                                Part of World of Pain *
 *  Usage: Generate XML MMP format map of the world for mappers            *
 *                                                                         *
 *  All rights reserved.  See license.doc for complete information.        *
