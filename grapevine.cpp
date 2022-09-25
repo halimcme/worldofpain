@@ -4,8 +4,8 @@
  *                                                                         *
  *  All rights reserved.  See license.doc for complete information.        *
  *                                                                         *
- *  Copyright (C) 2019 World of Pain                                       *
- *  https://www.worldofpa.in                                                   *
+ *  Copyright (C) 2022 World of Pain                                       *
+ *  https://www.worldofpa.in                                               *
  *                                                                         *
  *  Based on ws_chat.cpp by: Benjamin Sergeant                             *
  *  Copyright (C) 2017-2019 Machine Zone, Inc. All rights reserved.        *
