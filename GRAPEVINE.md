@@ -4,7 +4,7 @@
 - C++ compiling support for your code
 - Graeme-Hill Crossguid library: https://github.com/graeme-hill/crossguid
 - JSON for Modern C++ library: https://github.com/nlohmann/json
-- Machine Zone IXWebSocket library: https://github.com/machinezone/IXWebSocket (tested w/v5.1.3)
+- Machine Zone IXWebSocket library: https://github.com/machinezone/IXWebSocket (tested w/v5.1.3-11.4.3, build with cmake -DUSE_TLS=1 .)
 - Register your game at https://grapevine.haus/register/new and grab the client ID and secret to setup in your code.
 
 Modify GVGAME in grapevine.h to match the short name of your game as configured in Grapevine.
