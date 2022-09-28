@@ -103,7 +103,7 @@ std::string removeSpaces(std::string str)
 * utils.h:
 At the end of your function definitions:
 ```
-std::string removeSpaces(string str); 
+std::string removeSpaces(std::string str); 
 ```
 * structs.h:
 At the top in the includes section:
