@@ -94,7 +94,7 @@ At the end of enter_player_game before the return:
 At the end of the file:
 ```
 // Function to remove all spaces from a given string 
-string removeSpaces(string str)  
+std::string removeSpaces(std::string str)  
 { 
     str.erase(remove(str.begin(), str.end(), ' '), str.end()); 
     return str; 
@@ -103,7 +103,7 @@ string removeSpaces(string str)
 * utils.h:
 At the end of your function definitions:
 ```
-string removeSpaces(string str); 
+std::string removeSpaces(string str); 
 ```
 * structs.h:
 At the top in the includes section:
@@ -137,11 +137,11 @@ and
 ```
 with stock Circle/tba conventions like:
 ```
-  for (i = descriptor_list; i; i = i->next)
+  for (auto i = descriptor_list; i; i = i->next)
 ```
 and
 ```
-  for (i = character_list; i; i = i->next)
+  for (auto i = character_list; i; i = i->next)
 ```
 ## Player Command Help
 ### gvplayer
