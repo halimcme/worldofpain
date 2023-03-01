@@ -2184,7 +2184,7 @@ static void ParseGMCP(dPtr apDescriptor, const char* apData)
 
   if (Message == "external.discord.hello") {
     response["inviteurl"] = "https://discord.gg/8gNA9jR57r";
-    response["applicationid"] = "657372979360956432";
+    response["applicationid"] = "<YOUR APPLICATION ID>";
     SendGMCPJ(apDescriptor, "External.Discord.Info", response.dump());
     response.clear();
 
