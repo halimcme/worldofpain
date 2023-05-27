@@ -22,10 +22,10 @@ At the end of the init_char function:
 * interpreter.c:
 In your command_info cmd_info[] struct:
 ```
+  { "gvchannel", "gvc"   , POS_DEAD    , do_gvchannel, 0, 0, 0 },
   { "gvplayer" , "gvp"   , POS_DEAD    , do_gvplayer , 0, 0, 0 },
   { "gvgame"   , "gvg"   , POS_DEAD    , do_gvgame   , 0, 0, 0 },
   { "gvtell"   , "gvt"   , POS_DEAD    , do_gvtell   , 0, 0, 0 },
-  { "gvchannel", "gvc"   , POS_DEAD    , do_gvchannel, 0, 0, 0 },
   { "gvset"    , "gvs"   , POS_DEAD    , do_gvset    , 0, 0, 0 },
 ```
 Adjust number of fields to suit your code as needed.
