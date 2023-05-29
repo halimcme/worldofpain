@@ -317,7 +317,7 @@ void GvChat::eventBroadcast(json j)
   for (auto& i : descriptor_list) {
     if (STATE(i) == CON_PLAYING && i->character && can_hear_check(i->character)
         && !PLT_FLAGGED(i->character, PLT_GVNOCHANNELS)) {
-      send_to_char(i->character, "%sGV [%s] %s@%s%s%s: %s.%s\r\n", CCYEL(i->character, C_NRM), channel.c_str(),
+      send_to_char(i->character, "%sGV [%s] %s@%s%s%s: %s%s\r\n", CCYEL(i->character, C_NRM), channel.c_str(),
                    name.c_str(), CBBLU(i->character, C_NRM), game.c_str(), CCYEL(i->character, C_NRM), message.c_str(),
                    CCNRM(i->character, C_NRM));
     }
@@ -871,62 +871,40 @@ ACMD(do_gvtell)
     return;
   }
 
+  // blind people can't use Grapevine
   if (affected_by_spell(ch, SPELL_BLINDNESS)) {
     send_to_char(ch, "You have been blinded! You cannot GVTell anyone anything!\r\n");
     return;
   }
 
-  half_chop(argument, buf, buf2);
+  // split user@game into variables
+  string arg = argument;
 
-  if (!*buf || !*buf2) {
-    send_to_char(ch, "Whom do you wish to GVTell what??\r\n");
+  // extract user, game, and message from argument
+  string dest_user, dest_game, dest_message = "";
+  // if there is an @, then we have a game
+  size_t at_pos = arg.find('@');
+  if (at_pos != std::string::npos) {
+    // skip the first character because it is a space and the @ after the name
+    dest_user = arg.substr(1, at_pos - 1);
+    // if there is a space after the @, then we have a message
+    size_t space_pos = arg.find(' ', at_pos);
+    if (space_pos != std::string::npos) {
+      dest_game = arg.substr(at_pos + 1, space_pos - at_pos - 1);
+      dest_message = arg.substr(space_pos + 1);
+    }
+  }
+
+  // if any of the three are empty, then we have a problem
+  if (dest_user.empty() || dest_game.empty() || dest_message.empty()) {
+    send_to_char(ch, "You must specify who and what you wish to tell. See HELP GVTELL for more information.\r\n");
     return;
   }
 
-  // split user@game into two variables
-  vector<std::string> dest, dest2;
-  stringstream ss(argument);
-  string item;
-
-  while (getline(ss, item, '@')) {
-    dest.push_back(item);
-  }
-
-  // check for more than one @
-  if (dest.size() > 2) {
-    for (int i = 0; i < dest.size() - 1; i++) {
-      if (i > 0)
-        dest2[0] += "@";
-      dest2[0] += dest[i];
-    }
-    dest2.push_back(dest[dest.size() - 1]);
-    dest = dest2;
-    dest2.clear();
-  }
-
-  // initial arg doesn't contain @, maybe the player name has spaces?
-  if (dest.size() < 2) {
-    stringstream ss2(buf2);
-    if (getline(ss2, item, '@')) { // add the text before @ to the name
-      dest[0] += " " + item;
-    }
-    if (getline(ss2, item,
-                ' ')) { // add the game name to dest and copy the tell message
-      dest.push_back(item);
-      strlcpy(buf2, ss2.str().c_str(), sizeof(buf2));
-    } else { // no text after the game name
-      send_to_char(ch, "Whom do you wish to GVTell what??\r\n");
-      return;
-    }
-  }
-
-  // dest[0] = user @ dest[1] = game
-  if (dest.size() < 2 || dest[0].empty() || dest[1].empty()) {
-    send_to_char(ch, "GVTell User@Game to send a message.\r\n");
-    return;
-  }
-
-  GvChat->sendTell(ch, dest[0], dest[1], buf2);
+  GvChat->sendTell(ch, dest_user, dest_game, dest_message);
+  cout << "User: " << dest_user << endl;
+  cout << "Game: " << dest_game << endl;
+  cout << "Message: " << dest_message << endl;
 }
 
 // broadcast via Grapevine channel
